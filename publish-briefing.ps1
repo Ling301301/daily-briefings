@@ -6,6 +6,9 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$Title,
 
+  [Parameter(Mandatory = $false)]
+  [string]$MarkdownPath,
+
   [Parameter(ValueFromPipeline = $true)]
   [string]$InputObject
 )
@@ -86,6 +89,9 @@ end {
   }
 
   $markdown = $inputLines -join "`n"
+  if (-not [string]::IsNullOrWhiteSpace($MarkdownPath)) {
+    $markdown = [System.IO.File]::ReadAllText($MarkdownPath, [System.Text.Encoding]::UTF8)
+  }
   if ([string]::IsNullOrWhiteSpace($markdown)) {
     $markdown = [Console]::In.ReadToEnd()
   }
