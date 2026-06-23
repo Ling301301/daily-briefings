@@ -57,6 +57,10 @@ end {
         continue
       }
 
+      if ($trimmed -match '^事项类型：') {
+        continue
+      }
+
       if ($trimmed -match '^#\s+(.+)$') {
         Flush-Paragraph
         $html.Add("<h2>$(Convert-InlineMarkdown $Matches[1])</h2>")
