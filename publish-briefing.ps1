@@ -32,6 +32,7 @@ end {
     $encoded = [System.Net.WebUtility]::HtmlEncode($Text)
     $encoded = [regex]::Replace($encoded, '(https?://[^\s<]+)', '<a href="$1">$1</a>')
     $encoded = [regex]::Replace($encoded, '\*\*([^*]+)\*\*', '<strong>$1</strong>')
+    $encoded = [regex]::Replace($encoded, '(^|<br>)(涉及公司/国家：|涉及国家/地区：|事实摘要：|法务/交易关注点：|重要性说明：|来源链接：|English:)', '$1<strong>$2</strong>')
     return $encoded
   }
 
