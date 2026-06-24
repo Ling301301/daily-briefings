@@ -30,9 +30,9 @@ end {
   function Convert-InlineMarkdown {
     param([string]$Text)
     $encoded = [System.Net.WebUtility]::HtmlEncode($Text)
-    $encoded = [regex]::Replace($encoded, '(https?://[^\s<]+)', '<a href="$1">$1</a>')
     $encoded = [regex]::Replace($encoded, '\*\*([^*]+)\*\*', '<strong>$1</strong>')
-    $encoded = [regex]::Replace($encoded, '(^|<br>)(涉及公司/国家：|涉及国家/地区：|事实摘要：|法务/交易关注点：|重要性说明：|来源链接：|English:)', '$1<strong>$2</strong>')
+    $encoded = [regex]::Replace($encoded, '\[(?<label>[^\]]+)\]\((?<url>https?://[^\s)]+)\)', '<a href="${url}">${label}</a>')
+    $encoded = [regex]::Replace($encoded, '(https?://[^\s<]+)', '<a href="$1">$1</a>')
     return $encoded
   }
 
@@ -58,19 +58,21 @@ end {
         continue
       }
 
-      if ($trimmed -match '^事项类型：') {
-        continue
-      }
-
-      if ($trimmed -match '^#\s+(.+)$') {
+      if ($trimmed -match '^###\s+(.+)$') {
         Flush-Paragraph
-        $html.Add("<h2>$(Convert-InlineMarkdown $Matches[1])</h2>")
+        $html.Add("<h3>$(Convert-InlineMarkdown $Matches[1])</h3>")
         continue
       }
 
       if ($trimmed -match '^##\s+(.+)$') {
         Flush-Paragraph
-        $html.Add("<h3>$(Convert-InlineMarkdown $Matches[1])</h3>")
+        $html.Add("<h2>$(Convert-InlineMarkdown $Matches[1])</h2>")
+        continue
+      }
+
+      if ($trimmed -match '^#\s+(.+)$') {
+        Flush-Paragraph
+        $html.Add("<h1>$(Convert-InlineMarkdown $Matches[1])</h1>")
         continue
       }
 
@@ -115,11 +117,11 @@ end {
 </head>
 <body>
   <main class="page article-page">
-    <nav class="top-nav"><a href="index.html">&#36820;&#22238;&#39318;&#39029;</a></nav>
+    <nav class="top-nav"><a href="index.html">Home</a></nav>
     <article class="article">
       <p class="eyebrow">Daily Briefing</p>
       <h1>$pageTitle</h1>
-      <p class="meta">&#26356;&#26032;&#20110; $updated</p>
+      <p class="meta">Updated: $updated</p>
       <div class="briefing-body">
 $body
       </div>
@@ -129,17 +131,24 @@ $body
 </html>
 "@
 
-  $target = Join-Path $repo "$Page.html"
-  [System.IO.File]::WriteAllText($target, $htmlDoc, [System.Text.UTF8Encoding]::new($false))
+  $pagePath = Join-Path $repo ($Page + ".html")
+  [System.IO.File]::WriteAllText($pagePath, $htmlDoc, [System.Text.Encoding]::UTF8)
 
   $indexPath = Join-Path $repo "index.html"
-  $index = [System.IO.File]::ReadAllText($indexPath, [System.Text.Encoding]::UTF8)
-  $index = [regex]::Replace($index, '<time id="updated">.*?</time>', "<time id=`"updated`">$updated</time>")
-  [System.IO.File]::WriteAllText($indexPath, $index, [System.Text.UTF8Encoding]::new($false))
+  if (Test-Path -LiteralPath $indexPath) {
+    $indexText = [System.IO.File]::ReadAllText($indexPath, [System.Text.Encoding]::UTF8)
+    $indexText = [regex]::Replace($indexText, '(<time id="updated">)(.*?)(</time>)', "`$1$updated`$3")
+    [System.IO.File]::WriteAllText($indexPath, $indexText, [System.Text.Encoding]::UTF8)
+  }
 
-  git -c safe.directory="$repo" add index.html "$Page.html" publish-briefing.ps1 | Out-Null
-  git -c safe.directory="$repo" commit -m "Update $Page briefing $updated" | Out-Null
-  git -c safe.directory="$repo" push | Out-Null
-
-  Write-Output "Published $Page.html at $updated"
+  $gitStatus = & git -C $repo status --short
+  if ($gitStatus) {
+    & git -C $repo add -- $pagePath $indexPath
+    try {
+      & git -C $repo commit -m "Update $Page briefing"
+    } catch {
+      # Ignore empty-commit or no-op failures.
+    }
+    & git -C $repo push
+  }
 }
