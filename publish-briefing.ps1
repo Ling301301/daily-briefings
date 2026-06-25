@@ -29,10 +29,13 @@ process {
 end {
   function Convert-InlineMarkdown {
     param([string]$Text)
+    $hasMarkdownLink = $Text -match '\[[^\]]+\]\(https?://[^\s)]+\)'
     $encoded = [System.Net.WebUtility]::HtmlEncode($Text)
     $encoded = [regex]::Replace($encoded, '\*\*([^*]+)\*\*', '<strong>$1</strong>')
     $encoded = [regex]::Replace($encoded, '\[(?<label>[^\]]+)\]\((?<url>https?://[^\s)]+)\)', '<a href="${url}">${label}</a>')
-    $encoded = [regex]::Replace($encoded, '(https?://[^\s<]+)', '<a href="$1">$1</a>')
+    if (-not $hasMarkdownLink) {
+      $encoded = [regex]::Replace($encoded, '(https?://[^\s<]+)', '<a href="$1">$1</a>')
+    }
     return $encoded
   }
 
